@@ -8,15 +8,30 @@ dotenv.config();
 
 const app = express();
 
-app.use(cors());
+// 允許任何前端網域（包含 CodePen）進行跨網域呼叫
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 
 const upload = multer({ storage: multer.memoryStorage() });
+
+// 測試用首頁路由（確認 Server 是否活著）
+app.get('/', (req, res) => {
+    res.send('Fitness Backend is Running Successfully!');
+});
 
 app.post('/api/analyze-food', upload.single('image'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: '請上傳食物圖片' });
+        }
+
+        if (!process.env.GEMINI_API_KEY) {
+            return res.status(500).json({ error: '後端未設定 GEMINI_API_KEY' });
         }
 
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -30,7 +45,7 @@ app.post('/api/analyze-food', upload.single('image'), async (req, res) => {
         };
 
         const prompt = `請分析這張食物圖片，估算其熱量與三大營養素。
-請嚴格只回傳純 JSON 格式資料（不要包含任何 ```json 的 markdown 標記），格式如下：
+請嚴格只回傳純 JSON 格式資料（不要包含任何 \`\`\`json 的 markdown 標記），格式如下：
 {
   "food_name": "食物名稱",
   "estimated_weight": "預估重量（例如：250g）",
@@ -44,7 +59,6 @@ app.post('/api/analyze-food', upload.single('image'), async (req, res) => {
         const result = await model.generateContent([prompt, imagePart]);
         const responseText = result.response.text();
         
-        // 清理 JSON 字串
         const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
         const nutritionData = JSON.parse(cleanJson);
 
