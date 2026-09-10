@@ -7,7 +7,6 @@ import { GoogleGenAI, Type } from '@google/genai';
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
@@ -68,6 +67,4 @@ app.post('/api/analyze-food', upload.single('image'), async (req, res) => {
     }
 });
 
-app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
-});
+export default app;
