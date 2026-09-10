@@ -8,7 +8,6 @@ dotenv.config();
 
 const app = express();
 
-// 允許任何前端網域（包含 CodePen）進行跨網域呼叫
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
@@ -19,19 +18,20 @@ app.use(express.json());
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// 測試用首頁路由（確認 Server 是否活著）
+// 測試根目錄
 app.get('/', (req, res) => {
     res.send('Fitness Backend is Running Successfully!');
 });
 
-app.post('/api/analyze-food', upload.single('image'), async (req, res) => {
+// 通用處理 POST 請求（同時支援 / 與 /api/analyze-food 以及 /analyze-food）
+const handleAnalyze = async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: '請上傳食物圖片' });
         }
 
         if (!process.env.GEMINI_API_KEY) {
-            return res.status(500).json({ error: '後端未設定 GEMINI_API_KEY' });
+            return res.status(500).json({ error: '後端未設定 GEMINI_API_KEY 環境變數' });
         }
 
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -71,6 +71,11 @@ app.post('/api/analyze-food', upload.single('image'), async (req, res) => {
         console.error('AI 分析失敗：', error);
         return res.status(500).json({ error: '伺服器分析失敗：' + error.message });
     }
-});
+};
+
+// 綁定多重路由，確保不論 Vercel 如何映射都能正確接收
+app.post('/', upload.single('image'), handleAnalyze);
+app.post('/analyze-food', upload.single('image'), handleAnalyze);
+app.post('/api/analyze-food', upload.single('image'), handleAnalyze);
 
 export default app;
